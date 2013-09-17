@@ -1,0 +1,450 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<!-- As suggested by piazza post -->
+
+<!--
+ COLLABORATORS: None
+ 
+ -->
+<html>
+    
+    <head>
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+        <title>Checkerboard</title>
+        
+        <!-- Load style sheets -->
+        <link rel="stylesheet" type="text/css" href="mainLayout.css" />
+
+        <script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+        <script src="http://code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
+        
+        <!-- Load any supplemental Javascript libraries here -->
+        
+        <script type="text/javascript" src="checker.js"></script>
+        <script type="text/javascript" src="boardEvent.js"></script>
+        <script type="text/javascript" src="board.js"></script>
+        <script type="text/javascript" src="rules.js"></script>
+
+        
+        
+        <script type="text/javascript">
+            
+            //This script extracts parameters from the URL
+            //from jquery-howto.blogspot.com
+            
+            $.extend({
+                     getUrlVars : function() {
+                     var vars = [], hash;
+                     var hashes = window.location.href.slice(
+                                                             window.location.href.indexOf('?') + 1).split('&');
+                     for ( var i = 0; i < hashes.length; i++) {
+                     hash = hashes[i].split('=');
+                     vars.push(hash[0]);
+                     vars[hash[0]] = hash[1];
+                     }
+                     return vars;
+                     },
+                     getUrlVar : function(name) {
+                     return $.getUrlVars()[name];
+                     }
+                     });
+            
+            var DEFAULT_BOARD_SIZE = 8;
+            
+            //data model
+            var board;
+            var rules;
+            var whoseTurn = "black";
+            var from_col;
+            var from_row;
+            var checker;
+            
+            var directionOf = function(color) {
+                if (color == "black") {
+                    return -1;
+                }
+                return 1;
+            }
+            
+            
+            // Fill in this function to toggle the display for whose turn
+            // The color parameter should be either "black" or "red"
+            //Toggle whoseTurn and set the text to prompt user 
+            var toggleTurn = function(color) {
+                var element = document.getElementById("toggle_color");
+                element.style.color="white";
+                element.style.textAlign="center";
+                if(color=="black"){
+                    whoseTurn= "red";
+                    element.style.background="red";
+                    $(element).html("Red Turn");
+                }
+                else{
+                    element.style.background="black";
+                    whoseTurn= "black";
+                    $(element).html("Balck Turn");
+                    
+                }
+            }
+            
+            
+            
+            // This allows the Javascript code inside this block to only run when the page
+            // has finished loading in the browser.
+            $(document).ready(function() {
+                              
+                              if ($.getUrlVar('size') && $.getUrlVar('size') >= 6) {
+                              board = new Board($.getUrlVar('size'));
+                              } else {
+                              board = new Board(DEFAULT_BOARD_SIZE);
+                              }
+                              
+                              
+                              rules = new Rules(board);
+                              
+                              //set the properties of the player's turn display at the side bar
+                              var element = document.getElementById("toggle_color");
+                              element.style.color="white";
+                              element.style.textAlign="center";
+                              
+                              var coordinatesArray; //Array for drawing arrows
+                              
+                              //create a table to put in the pieces
+                              var t = document.createElement("TABLE");
+                              t.style.position = "absolute";
+                              t.style.left = "155px"; //to position it correctly
+                              t.style.top = "10px";
+                              t.style.width="400px";
+                              t.style.height="400px";
+                              t.cellSpacing="0px";
+                              t.cellPadding="0px";
+                              
+                              // create tbody
+                              var b = document.createElement("tbody");
+                              for(var row=0; row<board.boardSize; row++){
+                              //create row
+                              var r = document.createElement("TR");
+                              for(var cell = 0; cell < board.boardSize; cell++){
+                              
+                              // create cell
+                              var c = document.createElement("TD");
+                              c.height = 400/board.boardSize;
+                              c.width=400/board.boardSize;
+                              c.style.textAlign = "center";
+                              
+                              c.id=row.toString()+cell.toString(); 
+                              
+
+
+                              c.style.zIndex=2;
+                              var a=document.createElement('img');
+                              // r.appendChild(a);
+                              // a.width = 400/board.boardSize;
+                              // var textnode=document.createTextNode("W");
+                              // a.appendChild(textnode);
+
+                              r.appendChild(c); // add cell to row
+                              }
+                              b.appendChild(r); // add row to tbody
+                              }
+                              t.appendChild(b);
+                              var docBody = document.getElementById("piece");
+                              docBody.appendChild(t);
+                              
+                              //check the color of the checker and if the checker is a king
+                              //put the checker with the correct property into the cell.
+                              function append_cell(add_cell, checker_color, isKing){
+                              if(checker_color=="red" && isKing==false){
+                              var redPiece = document.createElement("IMG");
+                              redPiece.src = "../src/graphics/red-piece.png";
+                              redPiece.width=400/board.boardSize;
+                              redPiece.id=add_cell.id;
+                              redPiece.className+=" draggable";
+
+                              add_cell.appendChild(redPiece);
+                              }
+                              else if(checker_color=="red" && isKing==true){
+                              var redPieceKing = document.createElement("IMG");
+                              redPieceKing.src = "../src/graphics/red-king.png";
+                              redPieceKing.width=400/board.boardSize;
+                              redPieceKing.id=add_cell.id;
+                              redPieceKing.className+=" draggable";
+                              add_cell.appendChild(redPieceKing);
+                              }
+                              else if(checker_color=="black" && isKing==false){
+                              var blackPiece = document.createElement("IMG");
+                              blackPiece.src = "../src/graphics/black-piece.png";
+                              blackPiece.width=400/board.boardSize;
+                              blackPiece.id=add_cell.id;
+                              blackPiece.className+=" draggable";
+                              add_cell.appendChild(blackPiece);
+                              
+                              }
+                              else if(checker_color=="black" && isKing==true){
+                              var blackPieceKing = document.createElement("IMG");
+                              blackPieceKing.src = "../src/graphics/black-king.png";
+                              blackPieceKing.width=400/board.boardSize;
+                              blackPieceKing.id=add_cell.id;
+                              blackPieceKing.className+=" draggable";
+                              add_cell.appendChild(blackPieceKing);
+                              }
+                              $(".draggable").draggable({
+                                                        containment: [155,10,155+400-400/board.boardSize,10+400-400/board.boardSize],
+                                                        revert: true,
+                                                        zIndex: 2500
+                                                        });
+                              }
+              
+                              board.addEventListener('add',function (e) { 
+                                                     var tableID=e.details.row.toString()+e.details.col.toString();
+                                                     var add_cell=document.getElementById(tableID);
+                                                     append_cell(add_cell, e.details.checker.color, e.details.checker.isKing);
+                                                     },true);
+                              
+                              board.addEventListener('move',function (e) {
+                                                     var tableID=e.details.fromRow.toString()+e.details.fromCol.toString();
+                                                     var remove_cell=document.getElementById(tableID);
+                                                     remove_cell.removeChild(remove_cell.firstChild);
+                                                     var tableID_add=e.details.toRow.toString()+e.details.toCol.toString();
+                                                     var add_cell=document.getElementById(tableID_add);
+                                                     append_cell(add_cell, e.details.checker.color, e.details.checker.isKing);
+                                                     
+                                                     var fromRow = e.details.fromRow;
+                                                     var fromCol = e.details.fromCol;
+                                                     var toRow = e.details.toRow;
+                                                     var toCol = e.details.toCol;
+                                                     coordinatesArray = [fromRow, fromCol, toRow, toCol];
+                                                     
+                                                     },true);
+                              
+                              board.addEventListener('remove', function(e) {
+                                                     var tableID=e.details.row.toString()+e.details.col.toString();
+                                                     var remove_cell=document.getElementById(tableID);
+                                                     remove_cell.removeChild(remove_cell.firstChild);
+                                                     }, true);
+                              
+                              board.addEventListener('promote',function (e) {
+                                                     var tableID=e.details.checker.row.toString()+e.details.checker.col.toString();
+                                                     var promote_cell=document.getElementById(tableID);
+                                                     promote_cell.removeChild(promote_cell.firstChild);
+                                                     append_cell(promote_cell, e.details.checker.color, e.details.checker.isKing);
+                                                     },true);
+                              
+                              $("#btnNewGame").click(function(evt) {
+                                                     clearArrow();
+                                                     draw();
+                                                     element.style.background="black";
+                                                     whoseTurn= "black";
+                                                     $(element).html("Balck Turn");
+                                                     board.prepareNewGame();
+                                                     });
+                              
+                              $("#btnAutoMove").click(function(evt) {
+
+                                                      var playerColor = whoseTurn;
+                                                      var playerDirection = directionOf(playerColor);
+                                                      var result = rules.makeRandomMove(playerColor, playerDirection);
+                                                      if (result != null) {
+                                                      toggleTurn(whoseTurn);
+                                                      }
+                                                      displayArrow(coordinatesArray);
+                                                      });
+                              $("#undo").click(function(evt) {
+                                                      console.log("lala");
+                                                      board.moveTo(checker, from_row, from_col);
+                                                      var playerColor = whoseTurn;
+                                                      var playerDirection = directionOf(playerColor);
+                                                      toggleTurn(whoseTurn);
+                                                      clearArrow();
+                                                      
+                              
+                                                       
+                              
+                                                    });
+                              
+                                                        board.prepareNewGame();
+                              
+                                                    });
+                              
+            
+            //clears the arrow when starting a new game
+            function clearArrow(){
+                var canvas = document.getElementById("arrow");
+                var ctxt = canvas.getContext('2d');
+                ctxt.clearRect(0, 0, canvas.width, canvas.height);
+                
+            }
+            //given the coordinates of arrow orientation, draw an arrow
+            function displayArrow(fromToArray) {
+                var canvas = document.getElementById("arrow");
+                var ctxt = canvas.getContext('2d');
+                
+                ctxt.clearRect(0, 0, canvas.width, canvas.height);
+                draw();
+                
+                ctxt.fillStyle = "#FFFF00";
+                ctxt.strokeStyle = "#FFFF00";
+                ctxt.lineWidth = 2;
+                
+                // Unpack the fromToArray
+                var fromRow = fromToArray[0];
+                var fromCol = fromToArray[1];
+                var toRow = fromToArray[2];
+                var toCol = fromToArray[3];
+                
+                var squareWidth = 400/board.size();
+                var headlen = squareWidth/5;   // length of head in pixels
+                var angle = Math.atan2(toRow-fromRow,toCol-fromCol);
+                
+                // Draw the arrow
+                ctxt.beginPath();
+                ctxt.moveTo((fromCol+0.5)*squareWidth, (fromRow+0.5)*squareWidth);
+                ctxt.lineTo((toCol+0.5)*squareWidth, (toRow+0.5)*squareWidth);
+                ctxt.lineTo((toCol+0.5)*squareWidth-headlen*Math.cos(angle-Math.PI/6),(toRow+0.5)*squareWidth-headlen*Math.sin(angle-Math.PI/6));
+                ctxt.moveTo((toCol+0.5)*squareWidth, (toRow+0.5)*squareWidth);
+                ctxt.lineTo((toCol+0.5)*squareWidth-headlen*Math.cos(angle+Math.PI/6),(toRow+0.5)*squareWidth-headlen*Math.sin(angle+Math.PI/6));
+                ctxt.closePath();
+                ctxt.stroke();
+                
+            }
+
+            $(document).ready(function(){
+                    var checker_move
+                    var size=board.boardSize;
+                    var len=400/size;
+                    var from_Row;
+                    var from_Col;
+
+    $('#piece').mousedown(function (e) {
+//       console.log("mousedown")
+                          from_Col=Math.floor((e.pageX-155)/len);
+                          from_Row=Math.floor((e.pageY-10)/len);
+                          checker_move=board.getCheckerAt(from_Row, from_Col);
+//       console.log($(e.target).closest('#piece'))
+//                          //console.log(e.target.parents())
+                          });
+    $('#piece').mouseup(function(e){
+                        var toCol=Math.floor((e.pageX-155)/len);
+                        var toRow=Math.floor((e.pageY-10)/len);
+                        console.log("here");
+                        console.log(toCol);
+                        console.log(toRow);
+
+                        var color=checker_move.color;
+                        console.log(color);
+                        if(color=="black"){
+                        playerDirection=-1;
+                        }else{
+                        playerDirection=1;
+                        }
+                        var turnDirection;
+                        if(whoseTurn=="black"){
+                        turnDirection=-1;
+                        }else{
+                        turnDirection=1;
+                        }
+                        var move=rules.makeMove(checker_move, turnDirection, playerDirection,toRow,toCol);
+                        
+                        console.log(move);
+                        if(checker_move && move){
+                        from_col=move["from_col"];
+                        from_row=move["from_row"];
+                        checker=checker_move;
+                        console.log(from_col);
+                        board.moveTo(checker_move, toRow, toCol);
+                        displayArrow([from_Row,from_Col,toRow,toCol]);
+                        toggleTurn(whoseTurn);
+                        }
+
+    });
+
+ });
+            
+            
+            </script>
+        <script type="application/javascript">
+            function ContextMouseDown() {
+              alert('mousedown');
+            }
+            function loadstuff() {
+              document.body.onmousedown = function (e) {
+
+              e = e || window.event;
+              var elementId = (e.target || e.srcElement).id;
+              //$( #a03).draggable();
+              
+              //console.log(elementId);
+              // call your re-create function
+              //recreate(elementId);
+               // ...
+            } 
+              draw();
+            }
+            function draw() {
+                var canvas = document.getElementById('canvas');
+                if (canvas.getContext) {
+                    var ctxt = canvas.getContext("2d");
+                    var size=board.boardSize;
+                    var len=400/size;
+                    for(var row=0; row<size; row++){
+                        for(var col=0; col<size; col++){
+                            if ((row+col)%2==0){ //all the white tiles on the board has (row+col) as odd number
+                                ctxt.fillStyle = "white";
+                                ctxt.fillRect (col*len, row*len, len, len);
+                            }
+                        }
+                    }
+                }
+            }
+            </script>
+            <script>
+  // $("#00").mouseup(function(){
+  //     $(this).append('<span style="color:#F00;">Mouse up.</span>');
+  //   }).mousedown(function(){
+  //     $(this).append('<span style="color:#00F;">Mouse down.</span>');
+  //   });
+  // $(function() {
+
+  //   $( "#piece" ).draggable();
+  // });
+  </script>
+
+
+        
+    </head>
+    
+    <body onload="loadstuff();">
+        
+        <table id="mainTable">
+            <tr>
+                <td id="navigation">
+                    <table>
+                        <tr><td id="toggle_color" style="background-color: black" value=$("#whoseTurn")> Black Turn </td></tr>
+                        <tr><td><input id="btnNewGame" type="button" name="new" value="New Game"/></td></tr>
+                        <tr><td><input id="btnAutoMove" type="button" name="new" value="Auto Move"/></td></tr>
+                        <tr><td><input id="undo" type="button" name="new" value="Undo that thingy"/></td></tr>
+                        
+                    </table>
+                </td>
+                
+                <td id="content">
+                    
+                    <div id="container">
+                        
+                        <canvas id="canvas" width="400" height="400"></canvas>
+                        <canvas id="arrow" width="400" height="400" style="position:absolute; left: 155px; top: 10px; z-index:2600; pointer-events:none" ></canvas>
+                        <div id="piece" ></div>
+                        <!-- <div id="lala" class="drag">
+                        <p>Drag me around</p>
+                      </div> -->
+                    </div>
+                    
+                    
+                </td>
+            </tr>
+            
+        </table>
+        
+    </body>
+    
+</html>
